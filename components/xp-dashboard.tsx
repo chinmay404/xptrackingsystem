@@ -235,28 +235,30 @@ function DeepCodingTimer({
   playSound,
   userId,
   initialSeconds = 0,
+  isDemo = false,
 }: {
   onComplete: () => void
   playSound: (type: "complete" | "click") => void
   userId: string
   initialSeconds?: number
+  isDemo?: boolean
 }) {
   const [seconds, setSeconds] = useState(initialSeconds)
   const [isRunning, setIsRunning] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = isDemo ? null : createClient()
   const targetHours = 4
   const targetSeconds = targetHours * 60 * 60
   const lastLogRef = useRef(seconds)
 
   // Log timer to DB every 30 seconds
   useEffect(() => {
-    if (!isRunning) return
+    if (!isRunning || isDemo || !supabase) return
 
     const logInterval = setInterval(async () => {
       const today = new Date().toISOString().split("T")[0]
 
-      if (sessionId) {
+      if (sessionId && supabase) {
         await supabase
           .from("timer_sessions")
           .update({ duration_seconds: seconds, ended_at: new Date().toISOString() })
@@ -289,6 +291,8 @@ function DeepCodingTimer({
     playSound("click")
     setIsRunning(true)
 
+    if (isDemo || !supabase) return
+
     const today = new Date().toISOString().split("T")[0]
     const { data } = await supabase
       .from("timer_sessions")
@@ -308,6 +312,8 @@ function DeepCodingTimer({
     playSound("click")
     setIsRunning(false)
 
+    if (isDemo || !supabase) return
+
     if (sessionId) {
       await supabase
         .from("timer_sessions")
@@ -321,6 +327,8 @@ function DeepCodingTimer({
     setSeconds(0)
     setIsRunning(false)
     setSessionId(null)
+
+    if (isDemo || !supabase) return
 
     const today = new Date().toISOString().split("T")[0]
     await supabase.from("timer_sessions").delete().eq("user_id", userId).eq("session_date", today)
@@ -396,6 +404,7 @@ const questIcons: Record<string, any> = {
   "7+ Hours Sleep": Moon,
   "Cold Shower": ShowerHead,
   "Grooming (Face/Beard)": Scissors,
+  "Fail Condition: Fapping / Skipping Gym": AlertTriangle,
 }
 
 // Get rank based on level
@@ -437,8 +446,9 @@ export function XPDashboard({
   const [goalAchieved, setGoalAchieved] = useState(false)
   const [previousDailyXP, setPreviousDailyXP] = useState(0)
   const { playSound, muted, setMuted } = useSoundEffects()
+  const isDemo = userId === "demo"
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = isDemo ? null : createClient()
 
   const dailyXP = quests
     .filter((q) => completedQuests.has(q.id) && q.xp_value > 0)
@@ -462,6 +472,7 @@ export function XPDashboard({
 
   // Log activity to database
   const logActivity = async (actionType: string, details: Record<string, any>, xpChange: number) => {
+    if (!supabase) return
     await supabase.from("activity_log").insert({
       user_id: userId,
       action_type: actionType,
@@ -482,98 +493,102 @@ export function XPDashboard({
         setTimeout(() => setXpPopup({ xp: 0, visible: false }), 1500)
         setTimeout(() => setShowConfetti(false), 2500)
 
-        await supabase.from("quest_completions").insert({
-          user_id: userId,
-          quest_id: quest.id,
-          completion_date: today,
-          xp_earned: quest.xp_value,
-        })
-
-        // Log activity
-        await logActivity("quest_completed", { quest_name: quest.name, quest_id: quest.id }, quest.xp_value)
-
-        const { data: existingLog } = await supabase
-          .from("daily_logs")
-          .select("*")
-          .eq("user_id", userId)
-          .eq("log_date", today)
-          .maybeSingle()
-
-        if (existingLog) {
-          await supabase
-            .from("daily_logs")
-            .update({
-              total_xp: existingLog.total_xp + quest.xp_value,
-              quests_completed: existingLog.quests_completed + 1,
-            })
-            .eq("id", existingLog.id)
-        } else {
-          await supabase.from("daily_logs").insert({
+        if (supabase) {
+          await supabase.from("quest_completions").insert({
             user_id: userId,
-            log_date: today,
-            total_xp: quest.xp_value,
-            quests_completed: 1,
+            quest_id: quest.id,
+            completion_date: today,
+            xp_earned: quest.xp_value,
           })
-        }
 
-        if (profile) {
-          const newTotalXP = Math.max(0, profile.total_xp + quest.xp_value)
-          const newLevel = Math.floor(newTotalXP / 500) + 1
+          // Log activity
+          await logActivity("quest_completed", { quest_name: quest.name, quest_id: quest.id }, quest.xp_value)
 
-          if (newLevel > profile.level && quest.xp_value > 0) {
-            setTimeout(() => {
-              playSound("levelup")
-              setLevelUp({ level: newLevel, visible: true })
-            }, 1200)
-            // Log level up
-            await logActivity("level_up", { new_level: newLevel, old_level: profile.level }, 0)
+          const { data: existingLog } = await supabase
+            .from("daily_logs")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("log_date", today)
+            .maybeSingle()
+
+          if (existingLog) {
+            await supabase
+              .from("daily_logs")
+              .update({
+                total_xp: existingLog.total_xp + quest.xp_value,
+                quests_completed: existingLog.quests_completed + 1,
+              })
+              .eq("id", existingLog.id)
+          } else {
+            await supabase.from("daily_logs").insert({
+              user_id: userId,
+              log_date: today,
+              total_xp: quest.xp_value,
+              quests_completed: 1,
+            })
           }
 
-          await supabase
-            .from("profiles")
-            .update({
-              total_xp: newTotalXP,
-              level: newLevel,
-              last_active_date: today,
-            })
-            .eq("id", userId)
+          if (profile) {
+            const newTotalXP = Math.max(0, profile.total_xp + quest.xp_value)
+            const newLevel = Math.floor(newTotalXP / 500) + 1
+
+            if (newLevel > profile.level && quest.xp_value > 0) {
+              setTimeout(() => {
+                playSound("levelup")
+                setLevelUp({ level: newLevel, visible: true })
+              }, 1200)
+              // Log level up
+              await logActivity("level_up", { new_level: newLevel, old_level: profile.level }, 0)
+            }
+
+            await supabase
+              .from("profiles")
+              .update({
+                total_xp: newTotalXP,
+                level: newLevel,
+                last_active_date: today,
+              })
+              .eq("id", userId)
+          }
         }
 
         setCompletedQuests(new Set([...completedQuests, quest.id]))
       } else {
         playSound("click")
-        await supabase
-          .from("quest_completions")
-          .delete()
-          .eq("user_id", userId)
-          .eq("quest_id", quest.id)
-          .eq("completion_date", today)
-
-        // Log undo
-        await logActivity("quest_unchecked", { quest_name: quest.name, quest_id: quest.id }, -quest.xp_value)
-
-        const { data: existingLog } = await supabase
-          .from("daily_logs")
-          .select("*")
-          .eq("user_id", userId)
-          .eq("log_date", today)
-          .maybeSingle()
-
-        if (existingLog) {
+        if (supabase) {
           await supabase
+            .from("quest_completions")
+            .delete()
+            .eq("user_id", userId)
+            .eq("quest_id", quest.id)
+            .eq("completion_date", today)
+
+          // Log undo
+          await logActivity("quest_unchecked", { quest_name: quest.name, quest_id: quest.id }, -quest.xp_value)
+
+          const { data: existingLog } = await supabase
             .from("daily_logs")
-            .update({
-              total_xp: existingLog.total_xp - quest.xp_value,
-              quests_completed: Math.max(0, existingLog.quests_completed - 1),
-            })
-            .eq("id", existingLog.id)
-        }
+            .select("*")
+            .eq("user_id", userId)
+            .eq("log_date", today)
+            .maybeSingle()
 
-        if (profile) {
-          await supabase
-            .from("profiles")
-            .update({ total_xp: profile.total_xp - quest.xp_value })
-            .eq("id", userId)
+          if (existingLog) {
+            await supabase
+              .from("daily_logs")
+              .update({
+                total_xp: existingLog.total_xp - quest.xp_value,
+                quests_completed: Math.max(0, existingLog.quests_completed - 1),
+              })
+              .eq("id", existingLog.id)
+          }
+
+          if (profile) {
+            await supabase
+              .from("profiles")
+              .update({ total_xp: profile.total_xp - quest.xp_value })
+              .eq("id", userId)
+          }
         }
 
         const newSet = new Set(completedQuests)
@@ -600,12 +615,14 @@ export function XPDashboard({
     playSound("click")
     const today = new Date().toISOString().split("T")[0]
 
-    await supabase.from("quest_completions").delete().eq("user_id", userId).eq("completion_date", today)
-    await supabase.from("daily_logs").delete().eq("user_id", userId).eq("log_date", today)
-    await logActivity("daily_reset", { date: today }, 0)
+    if (supabase) {
+      await supabase.from("quest_completions").delete().eq("user_id", userId).eq("completion_date", today)
+      await supabase.from("daily_logs").delete().eq("user_id", userId).eq("log_date", today)
+      await logActivity("daily_reset", { date: today }, 0)
+    }
 
     setCompletedQuests(new Set())
-    router.refresh()
+    if (!isDemo) router.refresh()
   }
 
   // Year calculations
@@ -657,6 +674,11 @@ export function XPDashboard({
           <div className="text-center sm:text-left">
             <h1 className="text-2xl md:text-3xl font-black tracking-wider text-white cyber-text">THE XP SYSTEM</h1>
             <p className="text-cyan-500 text-xs md:text-sm tracking-widest">GAMIFY YOUR DAY • DAILY GOAL: 70+ XP</p>
+            {isDemo && (
+              <span className="inline-flex items-center gap-2 mt-2 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/40 text-amber-300 text-[11px] font-mono">
+                DEMO MODE (no cloud sync)
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             <button
@@ -826,7 +848,7 @@ export function XPDashboard({
                   key={quest.id}
                   onClick={() => handleToggleQuest(quest, !isCompleted)}
                   disabled={isLoading === quest.id}
-                  className={`quest-card group ${isCompleted ? "quest-card-completed" : ""}`}
+                  className={`quest-card group ${isCompleted ? "quest-card-completed opacity-50 grayscale-[0.5]" : ""}`}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div className="flex items-center gap-3 flex-1">
@@ -930,6 +952,7 @@ export function XPDashboard({
             playSound={playSound}
             userId={userId}
             initialSeconds={initialTimerSeconds}
+            isDemo={isDemo}
           />
         </div>
 
