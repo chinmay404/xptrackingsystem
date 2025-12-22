@@ -6,6 +6,16 @@ export interface Quest {
   description?: string
   icon?: string
   sort_order: number
+  user_id?: string
+  is_global?: boolean
+}
+
+export interface Friend {
+  id: string
+  user_id: string
+  friend_id: string
+  status: 'pending' | 'accepted' | 'blocked'
+  created_at: string
 }
 
 export interface QuestCompletion {
@@ -34,6 +44,13 @@ export interface Profile {
   streak_days: number
   last_active_date?: string
   created_at: string
+  current_streak?: number
+  longest_streak?: number
+  last_pass_date?: string
+  target_calories?: number
+  target_protein?: number
+  target_hydration?: number
+  target_deep_work?: number
 }
 
 export interface TimerSession {
@@ -64,6 +81,46 @@ export interface Notification {
   email_content?: Record<string, any>
   status: string
   created_at: string
+}
+
+export interface Achievement {
+  id: string
+  code: string
+  name: string
+  description?: string
+  icon?: string
+  xp_reward: number
+}
+
+export interface UserAchievement {
+  id: string
+  user_id: string
+  achievement_id: string
+  unlocked_at: string
+}
+
+export interface JournalEntry {
+  id: string
+  user_id: string
+  entry_date: string
+  content?: string
+  mood?: number
+  energy?: number
+  created_at: string
+  updated_at: string
+}
+
+export interface Goal {
+  id: string
+  user_id: string
+  name: string
+  target_value: number
+  current_value: number
+  unit: string
+  deadline?: string
+  status: 'active' | 'completed' | 'failed' | 'paused'
+  created_at: string
+  completed_at?: string
 }
 
 export const PERSONAL_USER_ID = "00000000-0000-0000-0000-000000000001"

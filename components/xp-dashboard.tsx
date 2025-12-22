@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import type { Quest, QuestCompletion, Profile, DailyLog } from "@/lib/types"
+import type { Quest, QuestCompletion, Profile, DailyLog, JournalEntry } from "@/lib/types"
 import {
   BarChart3,
   Trophy,
@@ -26,6 +26,11 @@ import {
   VolumeX,
   Check,
   Ban,
+  Heart,
+  Battery,
+  PenLine,
+  Award,
+  TrendingUp,
 } from "lucide-react"
 
 interface XPDashboardProps {
@@ -35,6 +40,7 @@ interface XPDashboardProps {
   userId: string
   yearLogs: DailyLog[]
   initialTimerSeconds?: number
+  initialJournal?: JournalEntry | null
 }
 
 // Sound effects hook
@@ -434,6 +440,7 @@ export function XPDashboard({
   userId,
   yearLogs,
   initialTimerSeconds = 0,
+  initialJournal = null,
 }: XPDashboardProps) {
   const [completedQuests, setCompletedQuests] = useState<Set<string>>(new Set(completions.map((c) => c.quest_id)))
   const [isLoading, setIsLoading] = useState<string | null>(null)
@@ -448,6 +455,12 @@ export function XPDashboard({
   const { playSound, muted, setMuted } = useSoundEffects()
   const isDemo = userId === "demo"
   const router = useRouter()
+
+  // Journal / mood / energy state
+  const [mood, setMood] = useState(initialJournal?.mood || 3)
+  const [energy, setEnergy] = useState(initialJournal?.energy || 3)
+  const [journalText, setJournalText] = useState(initialJournal?.content || "")
+  const [journalSaving, setJournalSaving] = useState(false)
   const supabase = isDemo ? null : createClient()
 
   const dailyXP = quests
@@ -469,6 +482,21 @@ export function XPDashboard({
 
   const handleCloseGoal = useCallback(() => setGoalAchieved(false), [])
   const handleCloseLevelUp = useCallback(() => setLevelUp({ level: 0, visible: false }), [])
+
+  // Save journal / mood / energy
+  const saveJournal = useCallback(async () => {
+    if (isDemo) return
+    setJournalSaving(true)
+    try {
+      await fetch("/api/journal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: journalText, mood, energy }),
+      })
+    } finally {
+      setJournalSaving(false)
+    }
+  }, [isDemo, journalText, mood, energy])
 
   // Log activity to database
   const logActivity = async (actionType: string, details: Record<string, any>, xpChange: number) => {
@@ -954,6 +982,97 @@ export function XPDashboard({
             initialSeconds={initialTimerSeconds}
             isDemo={isDemo}
           />
+        </div>
+
+        {/* Journal / Mood / Energy */}
+        <div className="cyber-card p-4 md:p-6 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <PenLine className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-lg font-bold tracking-wider text-white">DAILY JOURNAL</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-slate-500 text-xs tracking-widest mb-2 flex items-center gap-2">
+                <Heart className="w-4 h-4 text-pink-400" /> MOOD
+              </label>
+              <div className="flex gap-2 mt-1">
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setMood(v)}
+                    className={`w-10 h-10 rounded-lg border-2 text-sm font-bold transition-all ${
+                      mood === v
+                        ? "bg-pink-500/30 border-pink-400 text-pink-300"
+                        : "border-slate-700 text-slate-500 hover:border-pink-500"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-slate-500 text-xs tracking-widest mb-2 flex items-center gap-2">
+                <Battery className="w-4 h-4 text-emerald-400" /> ENERGY
+              </label>
+              <div className="flex gap-2 mt-1">
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setEnergy(v)}
+                    className={`w-10 h-10 rounded-lg border-2 text-sm font-bold transition-all ${
+                      energy === v
+                        ? "bg-emerald-500/30 border-emerald-400 text-emerald-300"
+                        : "border-slate-700 text-slate-500 hover:border-emerald-500"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <textarea
+            value={journalText}
+            onChange={(e) => setJournalText(e.target.value)}
+            placeholder="Reflect on today... (optional)"
+            className="w-full h-24 bg-slate-900/50 border border-slate-700 rounded-lg p-3 text-white placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none resize-none"
+          />
+          <div className="flex justify-end mt-3">
+            <button
+              onClick={saveJournal}
+              disabled={journalSaving || isDemo}
+              className="cyber-button-secondary px-4 py-2 text-xs tracking-widest"
+            >
+              {journalSaving ? "SAVING..." : "SAVE JOURNAL"}
+            </button>
+          </div>
+        </div>
+
+        {/* Streak & Stats Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <div className="cyber-card p-4 text-center">
+            <Flame className="w-6 h-6 mx-auto text-orange-400 mb-1" />
+            <p className="text-slate-500 text-xs tracking-widest">CURRENT STREAK</p>
+            <p className="text-2xl font-bold text-orange-400">{(profile as any)?.current_streak || 0}</p>
+          </div>
+          <div className="cyber-card p-4 text-center">
+            <TrendingUp className="w-6 h-6 mx-auto text-cyan-400 mb-1" />
+            <p className="text-slate-500 text-xs tracking-widest">LONGEST STREAK</p>
+            <p className="text-2xl font-bold text-cyan-400">{(profile as any)?.longest_streak || 0}</p>
+          </div>
+          <div className="cyber-card p-4 text-center">
+            <Award className="w-6 h-6 mx-auto text-amber-400 mb-1" />
+            <p className="text-slate-500 text-xs tracking-widest">LEVEL</p>
+            <p className="text-2xl font-bold text-amber-400">{profile?.level || 1}</p>
+          </div>
+          <div className="cyber-card p-4 text-center">
+            <Trophy className="w-6 h-6 mx-auto text-emerald-400 mb-1" />
+            <p className="text-slate-500 text-xs tracking-widest">TOTAL XP</p>
+            <p className="text-2xl font-bold text-emerald-400">{profile?.total_xp || 0}</p>
+          </div>
         </div>
 
         {/* Reset Button */}

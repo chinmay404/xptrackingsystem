@@ -117,6 +117,14 @@ export default async function Home() {
 
   const totalTimerSeconds = timerSessions?.reduce((sum, s) => sum + (s.duration_seconds || 0), 0) || 0
 
+  // Fetch today's journal entry
+  const { data: journalEntry } = await supabase
+    .from("journal_entries")
+    .select("*")
+    .eq("user_id", PERSONAL_USER_ID)
+    .eq("entry_date", today)
+    .maybeSingle()
+
   return (
     <XPDashboard
       profile={profile}
@@ -125,6 +133,7 @@ export default async function Home() {
       userId={PERSONAL_USER_ID}
       yearLogs={yearLogs || []}
       initialTimerSeconds={totalTimerSeconds}
+      initialJournal={journalEntry}
     />
   )
 }
