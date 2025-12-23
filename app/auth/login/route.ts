@@ -64,13 +64,41 @@ export async function POST(req: NextRequest) {
   }
 
   // Login
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: loginData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
   if (error) {
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, req.url))
+  }
+
+  // Ensure profile exists for this user (covers older accounts without profile rows)
+  const userId = loginData.session?.user.id
+  if (userId) {
+    const displayName =
+      name ||
+      (loginData.session?.user.user_metadata as Record<string, string> | null)?.display_name ||
+      email.split("@")[0]
+
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .maybeSingle()
+
+    if (!existingProfile) {
+      await supabase.from("profiles").upsert({
+        id: userId,
+        username: displayName,
+        email,
+        total_xp: 0,
+        level: 1,
+        streak_days: 0,
+        current_streak: 0,
+        longest_streak: 0,
+      })
+    }
   }
 
   return NextResponse.redirect(new URL("/", req.url))
