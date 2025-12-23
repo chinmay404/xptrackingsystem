@@ -19,9 +19,14 @@ export async function GET(req: NextRequest) {
         .single()
 
       if (!profile) {
+        const displayName =
+          (data.user.user_metadata as Record<string, string> | null)?.display_name ||
+          data.user.email?.split("@")[0] ||
+          "player"
+
         await supabase.from("profiles").insert({
           id: data.user.id,
-          username: data.user.email?.split("@")[0] || "player",
+          username: displayName,
           email: data.user.email,
           total_xp: 0,
           level: 1,
