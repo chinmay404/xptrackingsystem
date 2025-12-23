@@ -445,6 +445,7 @@ export function XPDashboard({
   const [completedQuests, setCompletedQuests] = useState<Set<string>>(new Set(completions.map((c) => c.quest_id)))
   const [isLoading, setIsLoading] = useState<string | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [completionBurst, setCompletionBurst] = useState(false)
   const [xpPopup, setXpPopup] = useState<{ xp: number; visible: boolean; isNegative?: boolean }>({
     xp: 0,
     visible: false,
@@ -517,7 +518,11 @@ export function XPDashboard({
       if (checked) {
         playSound(quest.xp_value > 0 ? "complete" : "penalty")
         setXpPopup({ xp: Math.abs(quest.xp_value), visible: true, isNegative: quest.xp_value < 0 })
-        if (quest.xp_value > 0) setShowConfetti(true)
+        if (quest.xp_value > 0) {
+          setShowConfetti(true)
+          setCompletionBurst(true)
+          setTimeout(() => setCompletionBurst(false), 900)
+        }
         setTimeout(() => setXpPopup({ xp: 0, visible: false }), 1500)
         setTimeout(() => setShowConfetti(false), 2500)
 
@@ -689,6 +694,15 @@ export function XPDashboard({
 
   return (
     <div className="min-h-screen cyber-bg text-white">
+      {completionBurst && (
+        <div className="fixed inset-0 pointer-events-none z-[60] flex items-center justify-center">
+          <div className="relative w-48 h-48">
+            <div className="absolute inset-0 rounded-full bg-cyan-400/15 animate-ping" />
+            <div className="absolute inset-4 rounded-full bg-emerald-400/20 animate-pulse" />
+            <div className="absolute inset-8 rounded-full border border-cyan-400/60 blur-[1px]" />
+          </div>
+        </div>
+      )}
       <Confetti isActive={showConfetti} />
       <XPPopup xp={xpPopup.xp} isVisible={xpPopup.visible} isNegative={xpPopup.isNegative} />
       <LevelUpOverlay level={levelUp.level} isVisible={levelUp.visible} onClose={handleCloseLevelUp} />

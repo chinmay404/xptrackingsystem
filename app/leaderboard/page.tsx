@@ -24,26 +24,23 @@ export default async function LeaderboardPage() {
       if (f.user_id === user.id) acceptedFriendIds.add(f.friend_id)
       else acceptedFriendIds.add(f.user_id)
     } else if (f.status === "pending" && f.friend_id === user.id) {
-      // Incoming request
       pendingRequests.push({ id: f.user_id, email: "" })
     }
   })
 
-  const allIds = [user.id, ...Array.from(acceptedFriendIds)]
-
-  // Get profiles
+  // Global leaderboard: top 50 users by XP
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, username, email, total_xp, level, current_streak, longest_streak")
-    .in("id", allIds)
     .order("total_xp", { ascending: false })
+    .limit(50)
 
   // Get today's XP
   const today = new Date().toISOString().split("T")[0]
   const { data: todayLogs } = await supabase
     .from("daily_logs")
     .select("user_id, total_xp")
-    .in("user_id", allIds)
+    .in("user_id", profiles?.map((p) => p.id) || [])
     .eq("log_date", today)
 
   const todayMap = new Map(todayLogs?.map((l) => [l.user_id, l.total_xp]) || [])
@@ -65,6 +62,7 @@ export default async function LeaderboardPage() {
     ...p,
     today_xp: todayMap.get(p.id) || 0,
     is_you: p.id === user.id,
+    is_friend: acceptedFriendIds.has(p.id),
     rank: index + 1,
   })) || []
 
@@ -158,8 +156,13 @@ export default async function LeaderboardPage() {
                   <div className="flex-1">
                     <p className={`font-bold ${player.is_you ? "text-cyan-400" : "text-white"}`}>
                       {player.username} {player.is_you && "(YOU)"}
+                      {player.is_friend && !player.is_you && (
+                        <span className="ml-2 text-[11px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                          FRIEND
+                        </span>
+                      )}
                     </p>
-                    <p className="text-slate-500 text-sm">Level {player.level} • {player.current_streak || 0} day streak</p>
+                    <p className="text-slate-500 text-sm">Level {player.level} • {player.current_streak || 0} day streak • Longest {player.longest_streak || 0}d</p>
                   </div>
 
                   <div className="text-right">
