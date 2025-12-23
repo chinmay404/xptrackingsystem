@@ -9,6 +9,8 @@ export async function POST(req: NextRequest) {
   const name = (formData.get("name") as string)?.trim()
   const action = (formData.get("action") as string) || "login"
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin
+
   if (!email || !password) {
     return NextResponse.redirect(new URL("/login?error=Email and password are required", req.url))
   }
@@ -21,6 +23,7 @@ export async function POST(req: NextRequest) {
       password,
       options: {
         data: name ? { display_name: name } : undefined,
+        emailRedirectTo: `${siteUrl}/auth/callback`,
       },
     })
 
