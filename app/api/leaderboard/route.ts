@@ -10,12 +10,11 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
-  // Fetch top 50 profiles by total XP
+  // Fetch all profiles by total XP (everyone, even 0 XP)
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, username, total_xp, level, current_streak, longest_streak")
     .order("total_xp", { ascending: false })
-    .limit(50)
 
   const ids = profiles?.map((p) => p.id) || []
 

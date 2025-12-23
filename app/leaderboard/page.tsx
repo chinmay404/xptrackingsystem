@@ -10,12 +10,11 @@ export default async function LeaderboardPage() {
     redirect("/login")
   }
 
-  // Global leaderboard: top 50
+  // Global leaderboard: all users
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, username, email, total_xp, level, current_streak, longest_streak")
     .order("total_xp", { ascending: false })
-    .limit(50)
 
   // Today's XP
   const today = new Date().toISOString().split("T")[0]
@@ -56,8 +55,8 @@ export default async function LeaderboardPage() {
         {/* Leaderboard */}
         <div className="cyber-card p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-bold text-white">GLOBAL RANKINGS (TOP 50)</h2>
-            <p className="text-xs text-slate-500">Sorted by total XP • Streaks visible</p>
+            <h2 className="text-lg font-bold text-white">GLOBAL RANKINGS (ALL PLAYERS)</h2>
+            <p className="text-xs text-slate-500">Everyone is shown, even 0 XP</p>
           </div>
           
           {leaderboard.length === 0 ? (
