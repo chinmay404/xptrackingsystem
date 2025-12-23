@@ -35,7 +35,7 @@ export default async function LoginPage({
 
           <form action="/auth/login" method="POST" className="space-y-4">
             <div>
-              <label className="text-slate-400 text-xs tracking-widest block mb-2">NAME</label>
+              <label className="text-slate-400 text-xs tracking-widest block mb-2">NAME (optional)</label>
               <input
                 type="text"
                 name="name"
@@ -53,16 +53,39 @@ export default async function LoginPage({
                 placeholder="your@email.com"
               />
             </div>
-            <button
-              type="submit"
-              className="w-full cyber-button py-3 text-sm tracking-widest"
-            >
-              SEND MAGIC LINK
-            </button>
+            <div>
+              <label className="text-slate-400 text-xs tracking-widest block mb-2">PASSWORD</label>
+              <input
+                type="password"
+                name="password"
+                required
+                minLength={6}
+                className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none"
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="submit"
+                name="action"
+                value="login"
+                className="w-full cyber-button py-3 text-sm tracking-widest"
+              >
+                LOGIN
+              </button>
+              <button
+                type="submit"
+                name="action"
+                value="signup"
+                className="w-full cyber-button-secondary py-3 text-sm tracking-widest"
+              >
+                CREATE ACCOUNT
+              </button>
+            </div>
           </form>
 
           <p className="text-slate-600 text-xs text-center mt-6">
-            Passwordless: enter email, we send a one-tap link
+            Simple email + password for you and your friend
           </p>
         </div>
       </div>
