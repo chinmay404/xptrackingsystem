@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ message?: string; error?: string }>
+}) {
+  const params = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -15,6 +20,18 @@ export default async function LoginPage() {
         <div className="cyber-card p-8">
           <h1 className="text-3xl font-black text-center text-white cyber-text mb-2">THE XP SYSTEM</h1>
           <p className="text-cyan-500 text-center text-sm tracking-widest mb-8">GAMIFY YOUR DAY</p>
+
+          {params.error && (
+            <div className="bg-red-500/20 border border-red-500 rounded-lg p-3 mb-4">
+              <p className="text-red-400 text-sm text-center">{params.error}</p>
+            </div>
+          )}
+
+          {params.message && (
+            <div className="bg-cyan-500/20 border border-cyan-500 rounded-lg p-3 mb-4">
+              <p className="text-cyan-400 text-sm text-center">{params.message}</p>
+            </div>
+          )}
 
           <form action="/auth/login" method="POST" className="space-y-4">
             <div>

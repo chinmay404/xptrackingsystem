@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        // Skip email confirmation for personal app
+        emailRedirectTo: `${req.nextUrl.origin}/auth/callback`,
+      },
     })
 
     if (error) {
@@ -31,7 +35,13 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    return NextResponse.redirect(new URL("/login?message=Check your email to confirm", req.url))
+    // If email confirmation is disabled in Supabase, user is auto-confirmed
+    if (data.session) {
+      return NextResponse.redirect(new URL("/", req.url))
+    }
+
+    // If email confirmation is required, show message
+    return NextResponse.redirect(new URL("/login?message=Check your email to confirm your account", req.url))
   }
 
   // Login
