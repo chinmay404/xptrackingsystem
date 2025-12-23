@@ -719,10 +719,23 @@ export function XPDashboard({
               <BarChart3 className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">ANALYTICS</span>
             </Link>
+            <Link href="/leaderboard" className="cyber-button-secondary px-3 py-2 text-sm">
+              <Trophy className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">LEADERBOARD</span>
+            </Link>
+            <Link href="/settings" className="cyber-button-secondary px-3 py-2 text-sm">
+              <Zap className="w-4 h-4 md:mr-2" />
+              <span className="hidden md:inline">SETTINGS</span>
+            </Link>
             <Link href="/docs" className="cyber-button-secondary px-3 py-2 text-sm">
               <BookOpen className="w-4 h-4 md:mr-2" />
               <span className="hidden md:inline">API</span>
             </Link>
+            {!isDemo && (
+              <Link href="/auth/logout" className="cyber-button-secondary px-3 py-2 text-sm text-red-400 border-red-500/30 hover:border-red-500">
+                LOGOUT
+              </Link>
+            )}
           </div>
         </div>
       </header>
