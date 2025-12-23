@@ -158,6 +158,20 @@ function Confetti({ isActive }: { isActive: boolean }) {
   )
 }
 
+// Neutral burst for zero-XP completions
+function NeutralBurst({ isActive }: { isActive: boolean }) {
+  if (!isActive) return null
+  return (
+    <div className="fixed inset-0 pointer-events-none z-40 flex items-center justify-center">
+      <div className="relative w-48 h-48">
+        <div className="absolute inset-0 rounded-full border border-cyan-400/40 animate-ping" />
+        <div className="absolute inset-4 rounded-full border border-emerald-400/40 animate-ping" style={{ animationDelay: "120ms" }} />
+        <div className="absolute inset-8 rounded-full border border-amber-400/40 animate-ping" style={{ animationDelay: "240ms" }} />
+      </div>
+    </div>
+  )
+}
+
 // XP Popup
 function XPPopup({ xp, isVisible, isNegative }: { xp: number; isVisible: boolean; isNegative?: boolean }) {
   if (!isVisible) return null
@@ -445,7 +459,7 @@ export function XPDashboard({
   const [completedQuests, setCompletedQuests] = useState<Set<string>>(new Set(completions.map((c) => c.quest_id)))
   const [isLoading, setIsLoading] = useState<string | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
-  const [completionBurst, setCompletionBurst] = useState(false)
+    const [showNeutralBurst, setShowNeutralBurst] = useState(false)
   const [xpPopup, setXpPopup] = useState<{ xp: number; visible: boolean; isNegative?: boolean }>({
     xp: 0,
     visible: false,
@@ -516,15 +530,21 @@ export function XPDashboard({
 
     try {
       if (checked) {
-        playSound(quest.xp_value > 0 ? "complete" : "penalty")
-        setXpPopup({ xp: Math.abs(quest.xp_value), visible: true, isNegative: quest.xp_value < 0 })
         if (quest.xp_value > 0) {
+          playSound("complete")
           setShowConfetti(true)
-          setCompletionBurst(true)
-          setTimeout(() => setCompletionBurst(false), 900)
+          setTimeout(() => setShowConfetti(false), 2500)
+        } else if (quest.xp_value < 0) {
+          playSound("penalty")
+        } else {
+          // Zero XP tasks still get a visual burst and click sound
+          playSound("click")
+          setShowNeutralBurst(true)
+          setTimeout(() => setShowNeutralBurst(false), 1200)
         }
+
+        setXpPopup({ xp: Math.abs(quest.xp_value), visible: true, isNegative: quest.xp_value < 0 })
         setTimeout(() => setXpPopup({ xp: 0, visible: false }), 1500)
-        setTimeout(() => setShowConfetti(false), 2500)
 
         if (supabase) {
           await supabase.from("quest_completions").insert({
@@ -694,17 +714,9 @@ export function XPDashboard({
 
   return (
     <div className="min-h-screen cyber-bg text-white">
-      {completionBurst && (
-        <div className="fixed inset-0 pointer-events-none z-[60] flex items-center justify-center">
-          <div className="relative w-48 h-48">
-            <div className="absolute inset-0 rounded-full bg-cyan-400/15 animate-ping" />
-            <div className="absolute inset-4 rounded-full bg-emerald-400/20 animate-pulse" />
-            <div className="absolute inset-8 rounded-full border border-cyan-400/60 blur-[1px]" />
-          </div>
-        </div>
-      )}
       <Confetti isActive={showConfetti} />
       <XPPopup xp={xpPopup.xp} isVisible={xpPopup.visible} isNegative={xpPopup.isNegative} />
+      <NeutralBurst isActive={showNeutralBurst} />
       <LevelUpOverlay level={levelUp.level} isVisible={levelUp.visible} onClose={handleCloseLevelUp} />
       <GoalAchievedOverlay isVisible={goalAchieved} onClose={handleCloseGoal} />
 

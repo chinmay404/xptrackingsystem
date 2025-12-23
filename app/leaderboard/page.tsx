@@ -10,59 +10,28 @@ export default async function LeaderboardPage() {
     redirect("/login")
   }
 
-  // Get friend IDs
-  const { data: friendships } = await supabase
-    .from("friends")
-    .select("user_id, friend_id, status")
-    .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-
-  const acceptedFriendIds = new Set<string>()
-  const pendingRequests: { id: string; email: string }[] = []
-
-  friendships?.forEach((f) => {
-    if (f.status === "accepted") {
-      if (f.user_id === user.id) acceptedFriendIds.add(f.friend_id)
-      else acceptedFriendIds.add(f.user_id)
-    } else if (f.status === "pending" && f.friend_id === user.id) {
-      pendingRequests.push({ id: f.user_id, email: "" })
-    }
-  })
-
-  // Global leaderboard: top 50 users by XP
+  // Global leaderboard: top 50
   const { data: profiles } = await supabase
     .from("profiles")
     .select("id, username, email, total_xp, level, current_streak, longest_streak")
     .order("total_xp", { ascending: false })
     .limit(50)
 
-  // Get today's XP
+  // Today's XP
   const today = new Date().toISOString().split("T")[0]
+  const ids = profiles?.map((p) => p.id) || []
   const { data: todayLogs } = await supabase
     .from("daily_logs")
     .select("user_id, total_xp")
-    .in("user_id", profiles?.map((p) => p.id) || [])
+    .in("user_id", ids)
     .eq("log_date", today)
 
   const todayMap = new Map(todayLogs?.map((l) => [l.user_id, l.total_xp]) || [])
-
-  // Get pending request profiles
-  if (pendingRequests.length > 0) {
-    const { data: pendingProfiles } = await supabase
-      .from("profiles")
-      .select("id, email")
-      .in("id", pendingRequests.map((p) => p.id))
-
-    pendingProfiles?.forEach((p) => {
-      const req = pendingRequests.find((r) => r.id === p.id)
-      if (req) req.email = p.email || "Unknown"
-    })
-  }
 
   const leaderboard = profiles?.map((p, index) => ({
     ...p,
     today_xp: todayMap.get(p.id) || 0,
     is_you: p.id === user.id,
-    is_friend: acceptedFriendIds.has(p.id),
     rank: index + 1,
   })) || []
 
@@ -84,55 +53,15 @@ export default async function LeaderboardPage() {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Add Friend Form */}
-        <div className="cyber-card p-6 mb-8">
-          <h2 className="text-lg font-bold text-white mb-4">ADD FRIEND</h2>
-          <form action="/api/friends" method="POST" className="flex gap-3">
-            <input
-              type="email"
-              name="friend_email"
-              placeholder="Friend's email address"
-              required
-              className="flex-1 bg-slate-900/50 border border-slate-700 rounded-lg px-4 py-2 text-white placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none"
-            />
-            <button type="submit" className="cyber-button px-6 py-2 text-sm">
-              SEND REQUEST
-            </button>
-          </form>
-        </div>
-
-        {/* Pending Requests */}
-        {pendingRequests.length > 0 && (
-          <div className="cyber-card-danger p-6 mb-8">
-            <h2 className="text-lg font-bold text-amber-400 mb-4">PENDING REQUESTS</h2>
-            <div className="space-y-3">
-              {pendingRequests.map((req) => (
-                <div key={req.id} className="flex items-center justify-between bg-slate-900/50 p-3 rounded-lg">
-                  <span className="text-white">{req.email}</span>
-                  <div className="flex gap-2">
-                    <form action={`/api/friends/${req.id}`} method="POST">
-                      <input type="hidden" name="_method" value="PATCH" />
-                      <input type="hidden" name="status" value="accepted" />
-                      <button type="submit" className="cyber-button px-4 py-1 text-xs">ACCEPT</button>
-                    </form>
-                    <form action={`/api/friends/${req.id}`} method="POST">
-                      <input type="hidden" name="_method" value="PATCH" />
-                      <input type="hidden" name="status" value="blocked" />
-                      <button type="submit" className="cyber-button-danger px-4 py-1 text-xs">REJECT</button>
-                    </form>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Leaderboard */}
         <div className="cyber-card p-6">
-          <h2 className="text-lg font-bold text-white mb-6">RANKINGS</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-white">GLOBAL RANKINGS (TOP 50)</h2>
+            <p className="text-xs text-slate-500">Sorted by total XP • Streaks visible</p>
+          </div>
           
           {leaderboard.length === 0 ? (
-            <p className="text-slate-500 text-center py-8">Add friends to see the leaderboard!</p>
+            <p className="text-slate-500 text-center py-8">No players yet.</p>
           ) : (
             <div className="space-y-3">
               {leaderboard.map((player) => (
@@ -156,13 +85,8 @@ export default async function LeaderboardPage() {
                   <div className="flex-1">
                     <p className={`font-bold ${player.is_you ? "text-cyan-400" : "text-white"}`}>
                       {player.username} {player.is_you && "(YOU)"}
-                      {player.is_friend && !player.is_you && (
-                        <span className="ml-2 text-[11px] px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                          FRIEND
-                        </span>
-                      )}
                     </p>
-                    <p className="text-slate-500 text-sm">Level {player.level} • {player.current_streak || 0} day streak • Longest {player.longest_streak || 0}d</p>
+                    <p className="text-slate-500 text-sm">Level {player.level} • {player.current_streak || 0} day streak • Best {player.longest_streak || 0}d</p>
                   </div>
 
                   <div className="text-right">
